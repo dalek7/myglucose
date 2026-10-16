@@ -15,6 +15,8 @@ struct GlucoseChartView: View {
     var photoNotes: [PhotoNote] = []
     /// 측정점을 선택한 상태에서 사진 버튼을 누르면 그 측정 시각으로 호출된다.
     var onAddPhoto: ((Date) -> Void)?
+    /// 차트 바닥의 사진 배지를 탭하면 그 측정점에 붙은 메모들로 호출된다.
+    var onShowPhotoNotes: (([PhotoNote]) -> Void)?
     /// 바깥(차트 밖 화면)을 탭했을 때 값이 바뀌면 선택을 푼다.
     var deselectSignal: Int = 0
 
@@ -57,6 +59,7 @@ struct GlucoseChartView: View {
         focusedWorkout: WorkoutInfo? = nil,
         photoNotes: [PhotoNote] = [],
         onAddPhoto: ((Date) -> Void)? = nil,
+        onShowPhotoNotes: (([PhotoNote]) -> Void)? = nil,
         deselectSignal: Int = 0
     ) {
         self.scope = scope
@@ -66,6 +69,7 @@ struct GlucoseChartView: View {
         self.focusedWorkout = focusedWorkout
         self.photoNotes = photoNotes
         self.onAddPhoto = onAddPhoto
+        self.onShowPhotoNotes = onShowPhotoNotes
         self.deselectSignal = deselectSignal
         _visibleSeconds = State(initialValue: interval.duration)
         _windowStart = State(initialValue: interval.start)
@@ -348,12 +352,13 @@ struct GlucoseChartView: View {
             }
 
             // 저장된 식사 사진·메모 위치를 측정값 보기에서 배지로 표시한다.
+            // 같은 측정점에 붙은 메모는 하나의 배지로 묶고 개수를 보여준다.
             if showsLine {
-                ForEach(visiblePhotoNotes) { note in
+                ForEach(visibleNoteGroups, id: \.date) { group in
                     // 배지에서 그 시각의 혈당 값까지 은은한 점선 보조선을 올린다.
-                    if let value = glucoseValue(near: note.pointDate) {
+                    if let value = glucoseValue(near: group.date) {
                         RuleMark(
-                            x: .value("사진 메모", note.pointDate),
+                            x: .value("사진 메모", group.date),
                             yStart: .value("혈당", yDomain.lowerBound),
                             yEnd: .value("혈당", value)
                         )
@@ -361,14 +366,21 @@ struct GlucoseChartView: View {
                         .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 3]))
                     }
                     PointMark(
-                        x: .value("사진 메모", note.pointDate),
+                        x: .value("사진 메모", group.date),
                         y: .value("혈당", yDomain.lowerBound)
                     )
                     .symbolSize(0)
                     .annotation(position: .top, spacing: 2) {
-                        Image(systemName: note.assetIdentifier == nil ? "note.text" : "photo.fill")
-                            .font(.caption2)
-                            .foregroundStyle(.orange)
+                        HStack(spacing: 2) {
+                            Image(systemName: group.notes.contains { $0.assetIdentifier != nil }
+                                ? "photo.fill" : "note.text")
+                            if group.notes.count > 1 {
+                                Text("\(group.notes.count)")
+                                    .fontWeight(.semibold)
+                            }
+                        }
+                        .font(.caption2)
+                        .foregroundStyle(.orange)
                     }
                 }
             }
@@ -405,6 +417,26 @@ struct GlucoseChartView: View {
                         .offset(x: plot.minX, y: plot.minY)
                         .transition(.opacity)
                 }
+
+                // 배지는 차트 annotation이라 탭을 받지 못하므로,
+                // 같은 자리에 투명한 탭 영역을 겹쳐 사진 시트를 연다.
+                if showsLine, let onShowPhotoNotes, let plotFrame = proxy.plotFrame {
+                    let plot = geo[plotFrame]
+                    ForEach(visibleNoteGroups, id: \.date) { group in
+                        if let x = proxy.position(forX: group.date) {
+                            Button {
+                                onShowPhotoNotes(group.notes)
+                            } label: {
+                                Color.clear
+                                    .frame(width: 30, height: 30)
+                                    .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .position(x: plot.minX + x, y: plot.maxY - 15)
+                            .accessibilityLabel("이 시각의 식사 사진 보기")
+                        }
+                    }
+                }
             }
             .animation(.easeInOut(duration: 0.2), value: showsZoomControls)
         }
@@ -419,6 +451,13 @@ struct GlucoseChartView: View {
     private var visiblePhotoNotes: [PhotoNote] {
         let window = DateInterval(start: windowStart, duration: visibleSeconds)
         return photoNotes.filter { window.contains($0.pointDate) }
+    }
+
+    /// 같은 측정점에 붙은 메모(사진 여러 장일 수 있음)를 시각별로 묶는다.
+    private var visibleNoteGroups: [(date: Date, notes: [PhotoNote])] {
+        Dictionary(grouping: visiblePhotoNotes, by: \.pointDate)
+            .map { (date: $0.key, notes: $0.value.sorted { $0.createdAt < $1.createdAt }) }
+            .sorted { $0.date < $1.date }
     }
 
     /// 메모 시각의 혈당 값. 같은 시각 측정이 없으면 30분 이내에서 가장 가까운 값을 쓴다.

@@ -70,6 +70,110 @@ struct PhotoViewer: View {
     }
 }
 
+// MARK: - 측정점의 사진 모아 보기 시트
+
+/// 차트의 사진 배지를 탭했을 때, 그 측정점에 붙은 사진·메모를 크게 보여주는 시트.
+/// 두 개 이상이면 각 사진의 촬영 시각을 함께 표시한다.
+struct PhotoNotesSheet: View {
+    let notes: [PhotoNote]
+
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var viewer: ViewerItem?
+
+    private struct ViewerItem: Identifiable {
+        let assetIdentifier: String
+        var id: String { assetIdentifier }
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 20) {
+                    ForEach(notes) { note in
+                        NoteBlock(note: note, showsTime: notes.count > 1) { assetIdentifier in
+                            viewer = ViewerItem(assetIdentifier: assetIdentifier)
+                        }
+                    }
+                }
+                .padding()
+            }
+            .background(Color(.systemGroupedBackground))
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("닫기") { dismiss() }
+                }
+            }
+        }
+        .fullScreenCover(item: $viewer) { item in
+            PhotoViewer(assetIdentifier: item.assetIdentifier)
+        }
+    }
+
+    private var title: String {
+        guard let date = notes.first?.pointDate else { return "식사 사진" }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ko_KR")
+        formatter.dateFormat = "M/d (E) a h:mm"
+        return "\(formatter.string(from: date)) 식사 기록"
+    }
+
+    /// 사진 한 장과 그 메모. 사진을 탭하면 전체 화면으로 볼 수 있다.
+    private struct NoteBlock: View {
+        let note: PhotoNote
+        /// 같은 측정점에 사진이 여러 장일 때만 촬영 시각으로 구분해 준다.
+        let showsTime: Bool
+        let onTapPhoto: (String) -> Void
+
+        @State private var shotTime: Date?
+
+        var body: some View {
+            VStack(alignment: .leading, spacing: 8) {
+                if let assetIdentifier = note.assetIdentifier {
+                    Button {
+                        onTapPhoto(assetIdentifier)
+                    } label: {
+                        PhotoAssetImage(assetIdentifier: assetIdentifier)
+                            .frame(height: 300)
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("사진 전체 화면으로 보기")
+                }
+
+                if showsTime, let shotTime {
+                    Label(Self.timeLabel(shotTime) + " 촬영", systemImage: "camera")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                if !note.memo.isEmpty {
+                    Text(note.memo)
+                        .font(.subheadline)
+                }
+                if let carbs = note.carbsGrams {
+                    Text("탄수화물 \(PhotoNote.gramsText(carbs))g")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
+            }
+            .task {
+                if let assetIdentifier = note.assetIdentifier {
+                    shotTime = PhotoAssetLoader.creationDate(identifier: assetIdentifier)
+                }
+            }
+        }
+
+        private static func timeLabel(_ date: Date) -> String {
+            let formatter = DateFormatter()
+            formatter.locale = Locale(identifier: "ko_KR")
+            formatter.dateFormat = "a h:mm"
+            return formatter.string(from: date)
+        }
+    }
+}
+
 // MARK: - 메모 수정 시트
 
 /// 저장된 식사 메모의 내용과 탄수화물을 고치는 시트.

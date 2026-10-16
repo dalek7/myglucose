@@ -253,6 +253,12 @@ struct PhotoAssetImage: View {
 
 /// 사진 보관함 자산 식별자로 이미지를 불러오는 공용 로더.
 enum PhotoAssetLoader {
+    /// 사진의 촬영 시각.
+    static func creationDate(identifier: String) -> Date? {
+        PHAsset.fetchAssets(withLocalIdentifiers: [identifier], options: nil)
+            .firstObject?.creationDate
+    }
+
     static func image(
         identifier: String, targetSize: CGSize, contentMode: PHImageContentMode = .aspectFill
     ) async -> UIImage? {

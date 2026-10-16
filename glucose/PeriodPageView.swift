@@ -19,6 +19,8 @@ struct PeriodPageView: View {
     @State private var viewerTarget: ViewerTarget?
     /// 수정 시트를 띄울 메모.
     @State private var editingNote: PhotoNote?
+    /// 배지를 탭했을 때 모아 보여줄 메모들.
+    @State private var notesSheet: NotesSheetTarget?
     /// 탄수화물을 건강 앱에 기록하지 못했을 때의 안내.
     @State private var carbsSaveError: String?
     /// 차트 밖 화면을 탭할 때마다 올려서 차트의 값 선택을 푼다.
@@ -39,6 +41,11 @@ struct PeriodPageView: View {
     private struct ViewerTarget: Identifiable {
         let assetIdentifier: String
         var id: String { assetIdentifier }
+    }
+
+    private struct NotesSheetTarget: Identifiable {
+        let notes: [PhotoNote]
+        var id: Date { notes.first?.pointDate ?? .distantPast }
     }
 
     var body: some View {
@@ -94,6 +101,9 @@ struct PeriodPageView: View {
             PhotoNoteEditSheet(note: note) { memo, carbs in
                 applyEdit(to: note, memo: memo, carbs: carbs)
             }
+        }
+        .sheet(item: $notesSheet) { target in
+            PhotoNotesSheet(notes: target.notes)
         }
         .alert("건강 앱에 기록하지 못함", isPresented: .init(
             get: { carbsSaveError != nil },
@@ -182,6 +192,7 @@ struct PeriodPageView: View {
                     workouts: loadedWorkouts, focusedWorkout: selectedWorkout,
                     photoNotes: intervalNotes,
                     onAddPhoto: { photoTarget = PhotoTarget(date: $0) },
+                    onShowPhotoNotes: { notesSheet = NotesSheetTarget(notes: $0) },
                     deselectSignal: deselectSignal)
                 .frame(height: 220)
                 .accessibilityElement(children: .contain)
