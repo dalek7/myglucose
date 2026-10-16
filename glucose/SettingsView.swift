@@ -32,8 +32,12 @@ struct SettingsView: View {
                     Text(syncStatusText)
                         .multilineTextAlignment(.trailing)
                 }
-                LabeledContent("iCloud에 저장된 사진") {
-                    Text(uploadedCountText)
+                NavigationLink {
+                    PhotoGalleryView(photoStore: photoStore)
+                } label: {
+                    LabeledContent("iCloud에 저장된 사진") {
+                        Text(uploadedCountText)
+                    }
                 }
                 Button {
                     Task { await photoStore.syncNow() }

@@ -3,12 +3,11 @@ import SwiftUI
 
 // MARK: - 전체 화면 사진 보기
 
-/// 메모에 붙인 사진을 전체 화면으로 크게 보여준다. 핀치로 확대, 두 번 탭으로 확대/원래 크기 전환.
-struct PhotoViewer: View {
+/// 핀치로 확대하고 두 번 탭으로 확대/원래 크기를 오가는 사진 한 장.
+/// 전체 화면 뷰어와 갤러리 브라우저가 함께 쓴다.
+struct ZoomableAssetImage: View {
     let assetIdentifier: String
     var cloudIdentifier: String? = nil
-
-    @Environment(\.dismiss) private var dismiss
 
     @State private var image: UIImage?
     @State private var scale: CGFloat = 1
@@ -17,9 +16,7 @@ struct PhotoViewer: View {
     private static let maxScale: CGFloat = 5
 
     var body: some View {
-        ZStack {
-            Color.black.ignoresSafeArea()
-
+        Group {
             if let image {
                 Image(uiImage: image)
                     .resizable()
@@ -36,19 +33,7 @@ struct PhotoViewer: View {
                     .tint(.white)
             }
         }
-        .overlay(alignment: .topTrailing) {
-            Button {
-                dismiss()
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.headline)
-                    .foregroundStyle(.white)
-                    .frame(width: 36, height: 36)
-                    .background(.black.opacity(0.5), in: .circle)
-            }
-            .padding()
-            .accessibilityLabel("닫기")
-        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .task(id: assetIdentifier) {
             guard let resolved = PhotoAssetLoader.resolvedLocalIdentifier(
                 local: assetIdentifier, cloud: cloudIdentifier) else { return }
@@ -70,6 +55,35 @@ struct PhotoViewer: View {
             .onEnded { _ in
                 pinchBaseScale = nil
             }
+    }
+}
+
+/// 메모에 붙인 사진을 전체 화면으로 크게 보여준다.
+struct PhotoViewer: View {
+    let assetIdentifier: String
+    var cloudIdentifier: String? = nil
+
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        ZStack {
+            Color.black.ignoresSafeArea()
+            ZoomableAssetImage(
+                assetIdentifier: assetIdentifier, cloudIdentifier: cloudIdentifier)
+        }
+        .overlay(alignment: .topTrailing) {
+            Button {
+                dismiss()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.headline)
+                    .foregroundStyle(.white)
+                    .frame(width: 36, height: 36)
+                    .background(.black.opacity(0.5), in: .circle)
+            }
+            .padding()
+            .accessibilityLabel("닫기")
+        }
     }
 }
 
