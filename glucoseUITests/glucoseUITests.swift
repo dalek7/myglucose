@@ -128,9 +128,14 @@ final class glucoseUITests: XCTestCase {
         zoomTarget().pinch(withScale: 4.0, velocity: 2.0)
         sleep(1)
         attachScreen(name: "zoomed-in")
+        // 두 번 탭하면 그 지점을 중심으로 더 확대된다
         zoomTarget().doubleTap()
         sleep(1)
-        attachScreen(name: "zoom-reset")
+        attachScreen(name: "double-tap-zoom")
+        // 확대 상태에서는 선택이 없어도 돋보기 버튼이 보여 축소로 되돌릴 수 있다
+        XCTAssertTrue(
+            app.buttons["zoomOut"].waitForExistence(timeout: 3),
+            "확대 상태에서는 돋보기 버튼이 보여야 합니다")
 
         // 주 단위 화면 확인
         let weekSegment = app.buttons["주"]

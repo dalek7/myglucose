@@ -15,6 +15,8 @@ struct GlucoseChartView: View {
     var photoNotes: [PhotoNote] = []
     /// 측정점을 선택한 상태에서 사진 버튼을 누르면 그 측정 시각으로 호출된다.
     var onAddPhoto: ((Date) -> Void)?
+    /// 바깥(차트 밖 화면)을 탭했을 때 값이 바뀌면 선택을 푼다.
+    var deselectSignal: Int = 0
 
     private struct DayRange: Identifiable {
         let id: Date
@@ -54,7 +56,8 @@ struct GlucoseChartView: View {
         points: [GlucosePoint], workouts: [WorkoutInfo] = [],
         focusedWorkout: WorkoutInfo? = nil,
         photoNotes: [PhotoNote] = [],
-        onAddPhoto: ((Date) -> Void)? = nil
+        onAddPhoto: ((Date) -> Void)? = nil,
+        deselectSignal: Int = 0
     ) {
         self.scope = scope
         self.interval = interval
@@ -63,6 +66,7 @@ struct GlucoseChartView: View {
         self.focusedWorkout = focusedWorkout
         self.photoNotes = photoNotes
         self.onAddPhoto = onAddPhoto
+        self.deselectSignal = deselectSignal
         _visibleSeconds = State(initialValue: interval.duration)
         _windowStart = State(initialValue: interval.start)
     }
@@ -101,8 +105,8 @@ struct GlucoseChartView: View {
             // .subviews/.all 마스크로 오버레이의 선택 제스처는 항상 살려 둔다.
             .gesture(panGesture, including: isZoomed ? .all : .subviews)
             .simultaneousGesture(magnifyGesture)
-            .onTapGesture(count: 2) {
-                withAnimation(.snappy) { resetZoom() }
+            .onChange(of: deselectSignal) {
+                selectedDate = nil
             }
             .onChange(of: interval) {
                 resetZoom()
@@ -203,9 +207,9 @@ struct GlucoseChartView: View {
             }
     }
 
-    /// 선택한 지점이나 운동이 있을 때만 돋보기 버튼을 보여준다.
+    /// 선택한 지점이나 운동이 있을 때, 또는 더블 탭 등으로 확대한 상태면 돋보기 버튼을 보여준다.
     private var showsZoomControls: Bool {
-        selectionAnchor != nil || focusedWorkout != nil
+        selectionAnchor != nil || focusedWorkout != nil || isZoomed
     }
 
     private var zoomControls: some View {
@@ -380,7 +384,7 @@ struct GlucoseChartView: View {
                 Rectangle()
                     .fill(Color.clear)
                     .contentShape(Rectangle())
-                    .gesture(selectionTapGesture(proxy: proxy, geo: geo))
+                    .gesture(chartTapGestures(proxy: proxy, geo: geo))
 
                 // 데이터가 적은 플롯 왼쪽 아래 구석에 둔다 (위쪽은 선택 카드 자리).
                 if showsZoomControls, let plotFrame = proxy.plotFrame {
@@ -494,12 +498,22 @@ struct GlucoseChartView: View {
         return proxy.value(atX: location.x - origin.x)
     }
 
-    private func selectionTapGesture(proxy: ChartProxy, geo: GeometryProxy) -> some Gesture {
-        SpatialTapGesture()
+    /// 한 번 탭하면 가까운 값 선택, 두 번 탭하면 그 지점을 중심으로 부드럽게 확대.
+    /// exclusively로 묶어 더블 탭이 선택 토글로 새지 않게 한다.
+    private func chartTapGestures(proxy: ChartProxy, geo: GeometryProxy) -> some Gesture {
+        let doubleTap = SpatialTapGesture(count: 2)
+            .onEnded { value in
+                guard let date = dateAt(value.location, proxy: proxy, geo: geo) else { return }
+                withAnimation(.snappy) {
+                    setVisibleLength(visibleSeconds / Self.zoomStep, anchor: date)
+                }
+            }
+        let singleTap = SpatialTapGesture()
             .onEnded { value in
                 guard let date = dateAt(value.location, proxy: proxy, geo: geo) else { return }
                 select(near: date, toggleIfSame: true)
             }
+        return doubleTap.exclusively(before: singleTap)
     }
 
     private func select(near date: Date, toggleIfSame: Bool) {

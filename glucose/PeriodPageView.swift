@@ -21,6 +21,8 @@ struct PeriodPageView: View {
     @State private var editingNote: PhotoNote?
     /// 탄수화물을 건강 앱에 기록하지 못했을 때의 안내.
     @State private var carbsSaveError: String?
+    /// 차트 밖 화면을 탭할 때마다 올려서 차트의 값 선택을 푼다.
+    @State private var deselectSignal = 0
 
     enum WorkoutLoadState {
         case idle
@@ -57,6 +59,12 @@ struct PeriodPageView: View {
                 }
                 .padding(.horizontal)
                 .padding(.bottom, 24)
+                // 차트 밖 아무 곳이나 탭하면 값 선택을 푼다.
+                // (차트 플롯이나 버튼 위의 탭은 각자의 제스처가 먼저 받아 여기로 오지 않는다.)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    deselectSignal += 1
+                }
             }
             .onChange(of: selectedWorkoutID) {
                 // 아래 운동 목록에서 골랐을 때 확대된 차트가 보이도록 끌어올린다.
@@ -173,7 +181,8 @@ struct PeriodPageView: View {
                     scope: scope, interval: interval, points: points,
                     workouts: loadedWorkouts, focusedWorkout: selectedWorkout,
                     photoNotes: intervalNotes,
-                    onAddPhoto: { photoTarget = PhotoTarget(date: $0) })
+                    onAddPhoto: { photoTarget = PhotoTarget(date: $0) },
+                    deselectSignal: deselectSignal)
                 .frame(height: 220)
                 .accessibilityElement(children: .contain)
                 .accessibilityIdentifier("glucoseChart")
@@ -181,7 +190,7 @@ struct PeriodPageView: View {
                     workoutLegend
                 }
                 sourcesFootnote
-                Text("탭하면 값 보기 · 선택 후 사진 버튼으로 식사 사진·메모 추가 · 운동을 누르면 그 구간 확대 · 두 번 탭하면 전체 보기")
+                Text("탭하면 값 보기 · 두 번 탭하면 그 지점 확대 · 차트 밖을 탭하면 선택 해제 · 선택 후 사진 버튼으로 식사 사진·메모 추가")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
             }
