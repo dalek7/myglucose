@@ -161,6 +161,19 @@ final class PhotoNoteStore {
         Set(notes.compactMap(\.assetIdentifier))
     }
 
+    // MARK: - 설정 화면 표시용 집계
+
+    /// 사진이 붙은 메모 수.
+    var photoNoteCount: Int {
+        notes.count { $0.assetIdentifier != nil }
+    }
+
+    /// iCloud 업로드까지 끝난 사진 메모 수. 동기화가 서버 미러를 유지하므로
+    /// "업로드 대기(dirty)가 아닌 것"을 세면 서버에 있는 개수와 같다.
+    var uploadedPhotoCount: Int {
+        notes.count { $0.assetIdentifier != nil && !dirtyIDs.contains($0.id) }
+    }
+
     // MARK: - 동기화에서 쓰는 내부 반영 (파일 저장은 동기화가 끝날 때 한 번에)
 
     /// iCloud에서 받은 메모를 반영한다. 로컬에 더 최신 수정이 있으면 로컬을 지킨다.

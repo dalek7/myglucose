@@ -32,6 +32,9 @@ struct SettingsView: View {
                     Text(syncStatusText)
                         .multilineTextAlignment(.trailing)
                 }
+                LabeledContent("iCloud에 저장된 사진") {
+                    Text(uploadedCountText)
+                }
                 Button {
                     Task { await photoStore.syncNow() }
                 } label: {
@@ -46,6 +49,12 @@ struct SettingsView: View {
         }
         .navigationTitle("설정")
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private var uploadedCountText: String {
+        let uploaded = photoStore.uploadedPhotoCount
+        let pending = photoStore.photoNoteCount - uploaded
+        return pending > 0 ? "\(uploaded)장 (업로드 대기 \(pending)장)" : "\(uploaded)장"
     }
 
     private var syncStatusText: String {
