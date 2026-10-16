@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>NSHealthShareUsageDescription</key>
+	<string>혈당 측정 기록과 운동 기록을 조회하여 화면에 표시하기 위해 건강 데이터 읽기 권한이 필요합니다.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>식사 메모에 입력한 탄수화물 섭취량을 건강 앱에 기록하기 위해 사용됩니다.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>선택한 혈당 시점 전후 1시간에 찍은 식사 사진을 찾아 메모와 함께 기록하기 위해 사진 보관함 접근 권한이 필요합니다.</string>
+</dict>
+</plist>
