@@ -350,6 +350,16 @@ struct GlucoseChartView: View {
             // 저장된 식사 사진·메모 위치를 측정값 보기에서 배지로 표시한다.
             if showsLine {
                 ForEach(visiblePhotoNotes) { note in
+                    // 배지에서 그 시각의 혈당 값까지 은은한 점선 보조선을 올린다.
+                    if let value = glucoseValue(near: note.pointDate) {
+                        RuleMark(
+                            x: .value("사진 메모", note.pointDate),
+                            yStart: .value("혈당", yDomain.lowerBound),
+                            yEnd: .value("혈당", value)
+                        )
+                        .foregroundStyle(.orange.opacity(0.35))
+                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 3]))
+                    }
                     PointMark(
                         x: .value("사진 메모", note.pointDate),
                         y: .value("혈당", yDomain.lowerBound)
@@ -409,6 +419,16 @@ struct GlucoseChartView: View {
     private var visiblePhotoNotes: [PhotoNote] {
         let window = DateInterval(start: windowStart, duration: visibleSeconds)
         return photoNotes.filter { window.contains($0.pointDate) }
+    }
+
+    /// 메모 시각의 혈당 값. 같은 시각 측정이 없으면 30분 이내에서 가장 가까운 값을 쓴다.
+    /// 그보다 멀면 보조선이 엉뚱한 높이를 가리키므로 긋지 않는다.
+    private func glucoseValue(near date: Date) -> Double? {
+        let nearest = points.min {
+            abs($0.date.timeIntervalSince(date)) < abs($1.date.timeIntervalSince(date))
+        }
+        guard let nearest, abs(nearest.date.timeIntervalSince(date)) <= 1800 else { return nil }
+        return nearest.value
     }
 
     // MARK: - 값 선택
