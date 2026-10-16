@@ -400,8 +400,10 @@ struct PeriodPageView: View {
 
     // MARK: - 데이터 로드
 
-    /// 아래로 당겨 새로고침: 혈당은 항상, 운동은 이미 조회한 적이 있을 때만 다시 읽는다.
+    /// 아래로 당겨 새로고침: 혈당은 항상, 운동은 이미 조회한 적이 있을 때만 다시 읽고,
+    /// 다른 기기에서 바꾼 식사 메모도 iCloud에서 끌어온다.
     private func refresh() async {
+        await photoStore.syncNow()
         await fetchGlucose()
         switch workoutState {
         case .loaded, .failed:
