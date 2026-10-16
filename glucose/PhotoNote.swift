@@ -56,6 +56,18 @@ final class PhotoNoteStore {
         save()
     }
 
+    /// 일괄 추가. 파일 저장은 한 번만 한다.
+    func add(contentsOf newNotes: [PhotoNote]) {
+        guard !newNotes.isEmpty else { return }
+        notes.append(contentsOf: newNotes)
+        save()
+    }
+
+    /// 이미 메모에 쓰인 사진 자산 식별자 집합 (일괄 추가에서 중복을 거르는 용도).
+    var usedAssetIdentifiers: Set<String> {
+        Set(notes.compactMap(\.assetIdentifier))
+    }
+
     func remove(_ note: PhotoNote) {
         notes.removeAll { $0.id == note.id }
         save()

@@ -2,7 +2,9 @@ import SwiftUI
 
 struct ContentView: View {
     @State private var healthStore = HealthStore()
+    @State private var photoStore = PhotoNoteStore()
     @State private var showTimeline = false
+    @State private var showSettings = false
     @State private var requesting = false
     @State private var errorMessage: String?
 
@@ -11,7 +13,10 @@ struct ContentView: View {
             intro
                 .navigationTitle("혈당")
                 .navigationDestination(isPresented: $showTimeline) {
-                    GlucoseTimelineView(healthStore: healthStore)
+                    GlucoseTimelineView(healthStore: healthStore, photoStore: photoStore)
+                }
+                .navigationDestination(isPresented: $showSettings) {
+                    SettingsView(healthStore: healthStore, photoStore: photoStore)
                 }
         }
         .tint(.glucose)
@@ -51,6 +56,17 @@ struct ContentView: View {
             }
             .buttonStyle(.borderedProminent)
             .disabled(requesting)
+            .padding(.horizontal, 24)
+
+            Button {
+                showSettings = true
+            } label: {
+                Label("설정", systemImage: "gearshape")
+                    .font(.subheadline.weight(.medium))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 6)
+            }
+            .buttonStyle(.bordered)
             .padding(.horizontal, 24)
 
             Text("조회 버튼을 누르면 건강 데이터 읽기 권한을 요청합니다.")

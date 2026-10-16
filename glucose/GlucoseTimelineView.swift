@@ -3,8 +3,8 @@ import SwiftUI
 /// 기간 단위를 고르고, 좌우 스와이프로 기간을 넘겨 보는 타임라인.
 struct GlucoseTimelineView: View {
     let healthStore: HealthStore
+    let photoStore: PhotoNoteStore
 
-    @State private var photoStore = PhotoNoteStore()
     @State private var scope: TimeScope = .day
     @State private var pageIndex: Int = TimeScope.day.pageCount - 1
 
@@ -42,6 +42,6 @@ struct GlucoseTimelineView: View {
 
 #Preview {
     NavigationStack {
-        GlucoseTimelineView(healthStore: HealthStore())
+        GlucoseTimelineView(healthStore: HealthStore(), photoStore: PhotoNoteStore())
     }
 }
