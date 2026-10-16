@@ -6,6 +6,7 @@ import SwiftUI
 /// 메모에 붙인 사진을 전체 화면으로 크게 보여준다. 핀치로 확대, 두 번 탭으로 확대/원래 크기 전환.
 struct PhotoViewer: View {
     let assetIdentifier: String
+    var cloudIdentifier: String? = nil
 
     @Environment(\.dismiss) private var dismiss
 
@@ -49,9 +50,11 @@ struct PhotoViewer: View {
             .accessibilityLabel("닫기")
         }
         .task(id: assetIdentifier) {
+            guard let resolved = PhotoAssetLoader.resolvedLocalIdentifier(
+                local: assetIdentifier, cloud: cloudIdentifier) else { return }
             // 화면 크기에 맞춰 원본에 가까운 해상도로 불러온다.
             image = await PhotoAssetLoader.image(
-                identifier: assetIdentifier,
+                identifier: resolved,
                 targetSize: CGSize(width: 2000, height: 2000),
                 contentMode: .aspectFit)
         }
@@ -83,6 +86,7 @@ struct PhotoNotesSheet: View {
 
     private struct ViewerItem: Identifiable {
         let assetIdentifier: String
+        let cloudIdentifier: String?
         var id: String { assetIdentifier }
     }
 
@@ -91,8 +95,11 @@ struct PhotoNotesSheet: View {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 20) {
                     ForEach(notes) { note in
-                        NoteBlock(note: note, showsTime: notes.count > 1) { assetIdentifier in
-                            viewer = ViewerItem(assetIdentifier: assetIdentifier)
+                        NoteBlock(note: note, showsTime: notes.count > 1) { tapped in
+                            guard let assetIdentifier = tapped.assetIdentifier else { return }
+                            viewer = ViewerItem(
+                                assetIdentifier: assetIdentifier,
+                                cloudIdentifier: tapped.assetCloudIdentifier)
                         }
                     }
                 }
@@ -108,7 +115,8 @@ struct PhotoNotesSheet: View {
             }
         }
         .fullScreenCover(item: $viewer) { item in
-            PhotoViewer(assetIdentifier: item.assetIdentifier)
+            PhotoViewer(
+                assetIdentifier: item.assetIdentifier, cloudIdentifier: item.cloudIdentifier)
         }
     }
 
@@ -125,7 +133,7 @@ struct PhotoNotesSheet: View {
         let note: PhotoNote
         /// 같은 측정점에 사진이 여러 장일 때만 촬영 시각으로 구분해 준다.
         let showsTime: Bool
-        let onTapPhoto: (String) -> Void
+        let onTapPhoto: (PhotoNote) -> Void
 
         @State private var shotTime: Date?
 
@@ -133,11 +141,13 @@ struct PhotoNotesSheet: View {
             VStack(alignment: .leading, spacing: 8) {
                 if let assetIdentifier = note.assetIdentifier {
                     Button {
-                        onTapPhoto(assetIdentifier)
+                        onTapPhoto(note)
                     } label: {
-                        PhotoAssetImage(assetIdentifier: assetIdentifier)
-                            .frame(height: 300)
-                            .frame(maxWidth: .infinity)
+                        PhotoAssetImage(
+                            assetIdentifier: assetIdentifier,
+                            cloudIdentifier: note.assetCloudIdentifier)
+                        .frame(height: 300)
+                        .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("사진 전체 화면으로 보기")
@@ -159,8 +169,9 @@ struct PhotoNotesSheet: View {
                 }
             }
             .task {
-                if let assetIdentifier = note.assetIdentifier {
-                    shotTime = PhotoAssetLoader.creationDate(identifier: assetIdentifier)
+                if let resolved = PhotoAssetLoader.resolvedLocalIdentifier(
+                    local: note.assetIdentifier, cloud: note.assetCloudIdentifier) {
+                    shotTime = PhotoAssetLoader.creationDate(identifier: resolved)
                 }
             }
         }
@@ -214,9 +225,11 @@ struct PhotoNoteEditSheet: View {
                     Button {
                         showViewer = true
                     } label: {
-                        PhotoAssetImage(assetIdentifier: assetIdentifier)
-                            .frame(height: 160)
-                            .frame(maxWidth: .infinity)
+                        PhotoAssetImage(
+                            assetIdentifier: assetIdentifier,
+                            cloudIdentifier: note.assetCloudIdentifier)
+                        .frame(height: 160)
+                        .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("사진 크게 보기")
@@ -262,7 +275,9 @@ struct PhotoNoteEditSheet: View {
         }
         .fullScreenCover(isPresented: $showViewer) {
             if let assetIdentifier = note.assetIdentifier {
-                PhotoViewer(assetIdentifier: assetIdentifier)
+                PhotoViewer(
+                    assetIdentifier: assetIdentifier,
+                    cloudIdentifier: note.assetCloudIdentifier)
             }
         }
     }

@@ -218,8 +218,10 @@ struct MealPhotoSheet: View {
 // MARK: - 사진 자산 썸네일
 
 /// 사진 보관함 자산 식별자로 썸네일을 불러와 보여준다.
+/// 다른 기기에서 추가된 메모는 cloudIdentifier로 이 기기의 원본을 다시 찾는다.
 struct PhotoAssetImage: View {
     let assetIdentifier: String
+    var cloudIdentifier: String? = nil
 
     @State private var image: UIImage?
 
@@ -242,9 +244,11 @@ struct PhotoAssetImage: View {
             .frame(width: geo.size.width, height: geo.size.height)
             .clipShape(.rect(cornerRadius: 8))
             .task(id: assetIdentifier) {
+                guard let resolved = PhotoAssetLoader.resolvedLocalIdentifier(
+                    local: assetIdentifier, cloud: cloudIdentifier) else { return }
                 let side = max(geo.size.width, geo.size.height) * 3
                 image = await PhotoAssetLoader.image(
-                    identifier: assetIdentifier,
+                    identifier: resolved,
                     targetSize: CGSize(width: side, height: side))
             }
         }
@@ -253,6 +257,39 @@ struct PhotoAssetImage: View {
 
 /// 사진 보관함 자산 식별자로 이미지를 불러오는 공용 로더.
 enum PhotoAssetLoader {
+    /// 다른 기기에서 만든 클라우드 식별자 → 이 기기의 로컬 식별자 변환 결과를 기억해 둔다.
+    private static var cloudToLocal: [String: String] = [:]
+
+    /// 로컬 식별자(이 기기)와 클라우드 식별자(기기 공통) 중 이 기기에서 열 수 있는 것을 고른다.
+    /// 다른 기기에서 추가한 메모는 로컬 식별자가 안 맞으므로 iCloud 사진 식별자로 다시 찾는다.
+    static func resolvedLocalIdentifier(local: String?, cloud: String?) -> String? {
+        if let local,
+           PHAsset.fetchAssets(withLocalIdentifiers: [local], options: nil).firstObject != nil {
+            return local
+        }
+        guard let cloud else { return nil }
+        if let cached = cloudToLocal[cloud] { return cached }
+        let cloudID = PHCloudIdentifier(stringValue: cloud)
+        let mappings = PHPhotoLibrary.shared().localIdentifierMappings(for: [cloudID])
+        guard let resolved = try? mappings[cloudID]?.get() else { return nil }
+        cloudToLocal[cloud] = resolved
+        return resolved
+    }
+
+    /// 로컬 식별자들의 기기 공통(iCloud) 식별자. 메모를 만들 때 함께 저장해 둔다.
+    static func cloudIdentifiers(forLocal identifiers: [String]) -> [String: String] {
+        guard !identifiers.isEmpty else { return [:] }
+        let mappings = PHPhotoLibrary.shared()
+            .cloudIdentifierMappings(forLocalIdentifiers: identifiers)
+        var result: [String: String] = [:]
+        for (local, mapping) in mappings {
+            if let cloud = try? mapping.get().stringValue {
+                result[local] = cloud
+            }
+        }
+        return result
+    }
+
     /// 사진의 촬영 시각.
     static func creationDate(identifier: String) -> Date? {
         PHAsset.fetchAssets(withLocalIdentifiers: [identifier], options: nil)

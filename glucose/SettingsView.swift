@@ -26,9 +26,36 @@ struct SettingsView: View {
             } header: {
                 Text("식사 기록")
             }
+
+            Section {
+                LabeledContent("상태") {
+                    Text(syncStatusText)
+                        .multilineTextAlignment(.trailing)
+                }
+                Button {
+                    Task { await photoStore.syncNow() }
+                } label: {
+                    Label("지금 동기화", systemImage: "arrow.triangle.2.circlepath")
+                }
+                .disabled(photoStore.syncInFlight)
+            } header: {
+                Text("iCloud 동기화")
+            } footer: {
+                Text("식사 사진·메모는 나의 iCloud로 기기 간 동기화됩니다. 혈당·운동·탄수화물 기록은 iCloud의 건강 동기화가, 사진 원본은 iCloud 사진이 각각 담당합니다.")
+            }
         }
         .navigationTitle("설정")
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private var syncStatusText: String {
+        if photoStore.syncInFlight { return "동기화 중…" }
+        if let message = photoStore.syncStatusMessage { return message }
+        guard let date = photoStore.lastSyncDate else { return "아직 동기화 전" }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ko_KR")
+        formatter.dateFormat = "M/d a h:mm"
+        return "마지막 동기화 \(formatter.string(from: date))"
     }
 }
 

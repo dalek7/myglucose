@@ -40,6 +40,7 @@ struct PeriodPageView: View {
 
     private struct ViewerTarget: Identifiable {
         let assetIdentifier: String
+        let cloudIdentifier: String?
         var id: String { assetIdentifier }
     }
 
@@ -95,7 +96,9 @@ struct PeriodPageView: View {
             }
         }
         .fullScreenCover(item: $viewerTarget) { target in
-            PhotoViewer(assetIdentifier: target.assetIdentifier)
+            PhotoViewer(
+                assetIdentifier: target.assetIdentifier,
+                cloudIdentifier: target.cloudIdentifier)
         }
         .sheet(item: $editingNote) { note in
             PhotoNoteEditSheet(note: note) { memo, carbs in
@@ -117,8 +120,13 @@ struct PeriodPageView: View {
 
     /// 메모를 저장하고, 탄수화물이 입력됐으면 건강 앱에도 기록한다.
     private func saveNote(pointDate: Date, assetIdentifier: String?, memo: String, carbs: Double?) {
+        // 다른 기기에서도 같은 원본을 찾을 수 있도록 기기 공통 식별자를 함께 저장한다.
+        let cloudIdentifier = assetIdentifier.flatMap {
+            PhotoAssetLoader.cloudIdentifiers(forLocal: [$0])[$0]
+        }
         let note = PhotoNote(
-            pointDate: pointDate, assetIdentifier: assetIdentifier, memo: memo, carbsGrams: carbs)
+            pointDate: pointDate, assetIdentifier: assetIdentifier,
+            assetCloudIdentifier: cloudIdentifier, memo: memo, carbsGrams: carbs)
         photoStore.add(note)
         guard let carbs else { return }
         Task {
@@ -285,7 +293,9 @@ struct PeriodPageView: View {
                         note: note,
                         onShowPhoto: {
                             if let assetIdentifier = note.assetIdentifier {
-                                viewerTarget = ViewerTarget(assetIdentifier: assetIdentifier)
+                                viewerTarget = ViewerTarget(
+                                    assetIdentifier: assetIdentifier,
+                                    cloudIdentifier: note.assetCloudIdentifier)
                             }
                         },
                         onEdit: { editingNote = note },
@@ -455,8 +465,10 @@ struct PhotoNoteRow: View {
         HStack(spacing: 12) {
             if let assetIdentifier = note.assetIdentifier {
                 Button(action: onShowPhoto) {
-                    PhotoAssetImage(assetIdentifier: assetIdentifier)
-                        .frame(width: 48, height: 48)
+                    PhotoAssetImage(
+                        assetIdentifier: assetIdentifier,
+                        cloudIdentifier: note.assetCloudIdentifier)
+                    .frame(width: 48, height: 48)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("사진 크게 보기")

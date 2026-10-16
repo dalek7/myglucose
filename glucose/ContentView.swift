@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct ContentView: View {
+    @Environment(\.scenePhase) private var scenePhase
+
     @State private var healthStore = HealthStore()
     @State private var photoStore = PhotoNoteStore()
     @State private var showTimeline = false
@@ -20,6 +22,15 @@ struct ContentView: View {
                 }
         }
         .tint(.glucose)
+        .task {
+            await photoStore.syncNow()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            // 다른 기기에서 바꾼 메모를 앱으로 돌아올 때마다 끌어온다.
+            if phase == .active {
+                photoStore.scheduleSync()
+            }
+        }
     }
 
     private var intro: some View {

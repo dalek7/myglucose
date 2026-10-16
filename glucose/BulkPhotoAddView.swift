@@ -303,9 +303,15 @@ struct BulkPhotoAddView: View {
     // MARK: - 추가
 
     private func addSelected() {
-        let newNotes = candidates
-            .filter { selected.contains($0.assetIdentifier) && !$0.alreadyAdded }
-            .map { PhotoNote(pointDate: $0.pointDate, assetIdentifier: $0.assetIdentifier, memo: "") }
+        let picked = candidates.filter { selected.contains($0.assetIdentifier) && !$0.alreadyAdded }
+        // 다른 기기에서도 같은 원본을 찾을 수 있도록 기기 공통 식별자를 함께 저장한다.
+        let cloudIdentifiers = PhotoAssetLoader.cloudIdentifiers(
+            forLocal: picked.map(\.assetIdentifier))
+        let newNotes = picked.map {
+            PhotoNote(
+                pointDate: $0.pointDate, assetIdentifier: $0.assetIdentifier,
+                assetCloudIdentifier: cloudIdentifiers[$0.assetIdentifier], memo: "")
+        }
         photoStore.add(contentsOf: newNotes)
         for index in candidates.indices where selected.contains(candidates[index].assetIdentifier) {
             candidates[index].alreadyAdded = true
